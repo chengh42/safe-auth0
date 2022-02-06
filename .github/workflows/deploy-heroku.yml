@@ -7,6 +7,10 @@ on:
     paths:
       - 'src/**'
 
+env:
+  HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+  APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -14,11 +18,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
-    - name: Heroku Docker Container Deploy
-      uses: lucassarcanjo/heroku-deploy@2.1.17
-      with:
-        email: ${{ secrets.HEROKU_EMAIL }}
-        formation: web
-        api_key: ${{ secrets.HEROKU_API_KEY }}
-        app_name: ${{ secrets.HEROKU_APP_NAME }}
-        dockerfile_path: ./
+    # Logging in to the registry
+    - name: Docker login
+      run: docker login --username=_ --password=$HEROKU_API_KEY registry.heroku.com
+
+    # Building and pushing image to Heroku Container Registry
+    - name: Build and publish
+      run: |
+        heroku container:push web -a $APP_NAME
+        heroku container:release web -a $APP_NAME
