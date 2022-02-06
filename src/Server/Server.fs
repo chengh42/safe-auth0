@@ -45,9 +45,14 @@ let webApp =
     |> Remoting.fromValue todosApi
     |> Remoting.buildHttpHandler
 
+// https://devcenter.heroku.com/articles/container-registry-and-runtime#dockerfile-commands-and-runtime
+let port =
+    System.Environment.GetEnvironmentVariable "PORT"
+    |> function null -> "8085" | p -> p
+
 let app =
     application {
-        url "http://0.0.0.0:8085"
+        url ("http://0.0.0.0:" + port)
         use_router webApp
         memory_cache
         use_static "public"
