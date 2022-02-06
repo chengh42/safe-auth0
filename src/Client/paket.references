@@ -1,4 +1,5 @@
 Fable.Core
+Fable.Auth0.React
 Fable.Elmish
 Fable.Elmish.React
 Fable.Elmish.Debugger
