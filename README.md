@@ -2,6 +2,8 @@
 
 Demo of [SAFE Stack](https://safe-stack.github.io/) with authentication using [Auth0](https://auth0.com/).
 
+_**WIP:** To do: [Backend setup](https://auth0.com/docs/quickstart/backend/aspnet-core-webapi) and call a corresponding API_
+
 ## Prerequisites
 
 * [.NET Core SDK](https://www.microsoft.com/net/download) 5.0 or higher
