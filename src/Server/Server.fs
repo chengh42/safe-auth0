@@ -1,8 +1,20 @@
 module Server
 
+open System
+open System.Security.Claims
+open System.Threading.Tasks
 open Fable.Remoting.Server
 open Fable.Remoting.Giraffe
+open Microsoft.AspNetCore.Authorization
+open Microsoft.AspNetCore.Authentication.JwtBearer
+open Microsoft.AspNetCore.Builder
+open Microsoft.Extensions.Configuration
+open Microsoft.Extensions.DependencyInjection
+open Microsoft.IdentityModel.Tokens
 open Saturn
+open Giraffe
+open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.Hosting
 
 open Shared
 
@@ -50,10 +62,63 @@ let port =
     System.Environment.GetEnvironmentVariable "PORT"
     |> function null -> "8085" | p -> p
 
+type HasScopeRequirement (scope: string, issuer: string) =
+    interface IAuthorizationRequirement
+    member _.Scope = if isNull scope then raise (ArgumentNullException(nameof scope)) else scope
+    member _.Issuer = if isNull issuer then raise (ArgumentNullException(nameof issuer)) else issuer
+
+type HasScopeHandler =
+    inherit AuthorizationHandler<HasScopeRequirement>
+    override this.HandleRequirementAsync (ctx, requirement) =
+        // If user does not have the scope claim, get out of here
+        if ctx.User.HasClaim (fun c -> c.Type = "scope" && c.Issuer = requirement.Issuer)
+            then Task.CompletedTask
+            else
+                // Split the scopes string into an array
+                let scopes = ctx.User
+                                .FindFirst(fun c -> c.Type = "scope" && c.Issuer = requirement.Issuer)
+                                .Value.Split(" ")
+
+                // Succeed if the scope array contains the required scope
+                if scopes |> Array.exists (fun s -> s = requirement.Scope)
+                    then ctx.Succeed requirement
+
+                Task.CompletedTask
+
+let configureApp (app:IApplicationBuilder) =
+    app
+        .UseAuthentication()
+        .UseAuthorization()
+
+let configureServices (services : IServiceCollection) =
+    let config = services.BuildServiceProvider().GetService<IConfiguration>()
+    let domain = config.["Auth0:Domain"]
+    let audience = config.["Auth0:Audience"]
+
+    printfn $"============== {domain} === {audience}"
+
+    services
+        .AddAuthorization(fun options ->
+            options.AddPolicy("read:messages", (fun policy ->
+                policy.AddRequirements(new HasScopeRequirement("read:messages", domain))
+                |> ignore)))
+        .AddSingleton<IAuthorizationHandler, HasScopeHandler>()
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer (fun options ->
+            options.Authority <- domain
+            options.Audience <- audience
+            options.TokenValidationParameters <- TokenValidationParameters(NameClaimType = ClaimTypes.NameIdentifier)
+        )
+        |> ignore
+
+    services
+
 let app =
     application {
-        url ("http://0.0.0.0:" + port)
         use_router webApp
+        url ("http://*:" + port)
+        service_config configureServices
+        app_config configureApp
         memory_cache
         use_static "public"
         use_gzip
