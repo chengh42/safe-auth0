@@ -7,6 +7,7 @@ open Helpers
 
 initializeContext()
 
+let rootPath = Path.getFullName "."
 let sharedPath = Path.getFullName "src/Shared"
 let serverPath = Path.getFullName "src/Server"
 let clientPath = Path.getFullName "src/Client"
@@ -24,7 +25,7 @@ Target.create "InstallClient" (fun _ -> run npm "install" ".")
 
 Target.create "Bundle" (fun _ ->
     [ "server", dotnet $"publish -c Release -o \"{deployPath}\"" serverPath
-      "client", dotnet "fable -o output -s --run webpack -p" clientPath ]
+      "client", dotnet $"fable -o output -s --run \"cd ../.. && npx webpack\"" clientPath ]
     |> runParallel
 )
 
