@@ -51,11 +51,29 @@ let todosApi =
                   | Error e -> return failwith e
               } }
 
-let webApp =
+let securedApi (ctx: HttpContext) =
+    for pair in ctx.Request.Headers do
+        printfn $"key = { pair.Key.ToLower() }, value = { pair.Value.[0] }"
+
+    { getMessage = fun () -> async { return "Hello from a private endpoint! You need to be authenticated to see this." } }
+
+let publicApp =
     Remoting.createApi ()
     |> Remoting.withRouteBuilder Route.builder
     |> Remoting.fromValue todosApi
     |> Remoting.buildHttpHandler
+
+let securedApp =
+    Remoting.createApi ()
+    |> Remoting.withRouteBuilder Route.builder
+    |> Remoting.fromContext securedApi
+    |> Remoting.buildHttpHandler
+
+let webApp =
+    choose [
+        publicApp
+        securedApp
+    ]
 
 // https://devcenter.heroku.com/articles/container-registry-and-runtime#dockerfile-commands-and-runtime
 let port =
@@ -95,8 +113,6 @@ let configureServices (services : IServiceCollection) =
     let domain = config.["Auth0:Domain"]
     let audience = config.["Auth0:Audience"]
 
-    printfn $"============== {domain} === {audience}"
-
     services
         .AddAuthorization(fun options ->
             options.AddPolicy("read:messages", (fun policy ->
@@ -107,6 +123,9 @@ let configureServices (services : IServiceCollection) =
         .AddJwtBearer (fun options ->
             options.Authority <- domain
             options.Audience <- audience
+            #if DEBUG
+            options.RequireHttpsMetadata <- false // only set to false in development
+            #endif
             options.TokenValidationParameters <- TokenValidationParameters(NameClaimType = ClaimTypes.NameIdentifier)
         )
         |> ignore
