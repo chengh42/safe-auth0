@@ -4,21 +4,28 @@ open Elmish
 open Fable.Remoting.Client
 open Shared
 
-type Model = { Todos: Todo list; Input: string }
+type Model = { Todos: Todo list; Input: string; Message: string }
 
 type Msg =
     | GotTodos of Todo list
     | SetInput of string
     | AddTodo
     | AddedTodo of Todo
+    | GetPrivateMessage
+    | GotPrivateMessage of string
 
 let todosApi =
     Remoting.createApi ()
     |> Remoting.withRouteBuilder Route.builder
     |> Remoting.buildProxy<ITodosApi>
 
+let securedApi =
+    Remoting.createApi ()
+    |> Remoting.withRouteBuilder Route.builder
+    |> Remoting.buildProxy<ISecuredApi>
+
 let init () : Model * Cmd<Msg> =
-    let model = { Todos = []; Input = "" }
+    let model = { Todos = []; Input = ""; Message = "" }
 
     let cmd =
         Cmd.OfAsync.perform todosApi.getTodos () GotTodos
@@ -40,6 +47,16 @@ let update (msg: Msg) (model: Model) : Model * Cmd<Msg> =
         { model with
               Todos = model.Todos @ [ todo ] },
         Cmd.none
+    | GetPrivateMessage ->
+        let cmd =
+            Cmd.OfAsync.either
+                securedApi.getMessage
+                ()
+                GotPrivateMessage
+                (fun err -> GotPrivateMessage $"Not authenticated: {err}")
+        model, cmd
+    | GotPrivateMessage msg ->
+        { model with Message = msg }, Cmd.none
 
 open Fable.Core
 open Fable.Auth0.React
@@ -152,7 +169,7 @@ let AuthenticationBox () =
             ]
         ]
 
-let navBrand =
+let navBrand model dispatch =
     Bulma.navbarBrand.div [
         Bulma.navbarItem.a [
             prop.href "https://safe-stack.github.io/"
@@ -166,6 +183,13 @@ let navBrand =
         ]
         Bulma.navbarItem.div [
             AuthenticationBox ()
+        ]
+        Bulma.navbarItem.div [
+            Bulma.button.button [
+                color.isPrimary
+                prop.onClick (fun _ -> GetPrivateMessage |> dispatch)
+                prop.text "Get message"
+            ]
         ]
     ]
 
@@ -207,16 +231,11 @@ let view (model: Model) (dispatch: Msg -> unit) =
     auth0App [
         Bulma.hero [
             hero.isFullHeight
-            color.isPrimary
-            prop.style [
-                style.backgroundSize "cover"
-                style.backgroundImageUrl "https://unsplash.it/1200/900?random"
-                style.backgroundPosition "no-repeat center center fixed"
-            ]
+            color.isLight
             prop.children [
                 Bulma.heroHead [
                     Bulma.navbar [
-                        Bulma.container [ navBrand ]
+                        Bulma.container [ navBrand model dispatch ]
                     ]
                 ]
                 Bulma.heroBody [
@@ -229,6 +248,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
                                     text.hasTextCentered
                                     prop.text "safe_auth0"
                                 ]
+                                Bulma.text.p (model.Message |> function "" -> "No message received yet..." | msg -> msg)
                                 containerBox model dispatch
                             ]
                         ]
