@@ -1,9 +1,13 @@
 {
     "private": true,
+    "engines": {
+        "node": "~16",
+        "npm": "~8"
+    },
     "scripts": {
-        "start": "webpack-dev-server",
+        "start": "webpack-dev-server --mode development",
         "build": "webpack --mode production",
-        "test:live": "webpack-dev-server --config webpack.tests.config.js"
+        "test:live": "webpack-dev-server --mode development --env test"
     },
     "devDependencies": {
         "copy-webpack-plugin": "^6.1.0",
