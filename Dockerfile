@@ -8,7 +8,9 @@ WORKDIR /workspace
 COPY . .
 RUN dotnet tool restore
 
-RUN dotnet run Bundle
+RUN dotnet publish src/Server/Server.fsproj -o "deploy"
+RUN dotnet fable --cwd src/Client -o output -s
+RUN npm run build
 
 
 # EXPOSE 8085 used for local testing

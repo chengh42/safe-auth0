@@ -25,8 +25,10 @@ Target.create "InstallClient" (fun _ -> run npm "install" ".")
 
 Target.create "Bundle" (fun _ ->
     [ "server", dotnet $"publish -c Release -o \"{deployPath}\"" serverPath
-      "client", dotnet $"fable -o output -s --run \"cd ../.. && npx webpack\"" clientPath ]
+      "client", dotnet $"fable -o output -s" clientPath ]
     |> runParallel
+
+    run npm "run build" "."
 )
 
 Target.create "Azure" (fun _ ->
