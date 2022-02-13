@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y nodejs
 WORKDIR /workspace
 COPY . .
 RUN dotnet tool restore
+RUN npm install
 
 RUN dotnet publish src/Server/Server.fsproj -o "deploy"
 RUN dotnet fable --cwd src/Client -o output -s
