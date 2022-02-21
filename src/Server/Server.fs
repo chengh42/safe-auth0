@@ -52,9 +52,6 @@ let todosApi =
               } }
 
 let securedApi (ctx: HttpContext) =
-    for pair in ctx.Request.Headers do
-        printfn $"key = { pair.Key.ToLower() }, value = { pair.Value.[0] }"
-
     { getMessage = fun () -> async { return "Hello from a private endpoint! You need to be authenticated to see this." } }
 
 let publicApp =
@@ -69,10 +66,13 @@ let securedApp =
     |> Remoting.fromContext securedApi
     |> Remoting.buildHttpHandler
 
+let mustBeAuthenticated : HttpHandler =
+    requiresAuthentication (RequestErrors.UNAUTHORIZED JwtBearerDefaults.AuthenticationScheme "SAFE-Auth0" "You must be logged in.")
+
 let webApp =
     choose [
         publicApp
-        securedApp
+        mustBeAuthenticated >=> securedApp
     ]
 
 // https://devcenter.heroku.com/articles/container-registry-and-runtime#dockerfile-commands-and-runtime
