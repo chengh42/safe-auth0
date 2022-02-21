@@ -20,8 +20,10 @@ let todosApi =
     |> Remoting.buildProxy<ITodosApi>
 
 let securedApi =
+    let token = Browser.WebStorage.localStorage.getItem "token"
     Remoting.createApi ()
     |> Remoting.withRouteBuilder Route.builder
+    |> Remoting.withAuthorizationHeader (sprintf "Bearer %s" token)
     |> Remoting.buildProxy<ISecuredApi>
 
 let init () : Model * Cmd<Msg> =
@@ -53,7 +55,7 @@ let update (msg: Msg) (model: Model) : Model * Cmd<Msg> =
                 securedApi.getMessage
                 ()
                 GotPrivateMessage
-                (fun err -> GotPrivateMessage $"Not authenticated: {err}")
+                (fun err -> GotPrivateMessage $"Not authenticated: {err.Message}")
         model, cmd
     | GotPrivateMessage msg ->
         { model with Message = msg }, Cmd.none
@@ -70,8 +72,8 @@ let auth0App (children: seq<ReactElement>) =
             {| domain = "dev-nik3xlx8.us.auth0.com"
                clientId = "t81FqAoSB0LQn0tgCDSNG0u7z34oC0SW"
                redirectUri = Browser.Dom.window.location.origin
-               audience = "https://dev-nik3xlx8.us.auth0.com/api/v2/"
-               scope = "read:current_user update:current_user_metadata" |}
+               audience = "https://safe-auth0.herokuapp.com/api/"
+               scope = "read:messages" |}
     Auth0Provider opts children
 
 
@@ -90,6 +92,7 @@ let AuthenticationBox () =
     let handleLogoutWithRedirect _ =
         let returnTo = Browser.Dom.window.location.href
         let opts = unbox<LogoutOptions> {| returnTo = returnTo |}
+        Browser.WebStorage.localStorage.removeItem "token"
         ctxAuth0.logout opts
 
     let loginButton =
@@ -108,6 +111,25 @@ let AuthenticationBox () =
                 Bulma.icon [ Html.i [ prop.className "fas fa-sign-out-alt" ] ]
             ]
         ]
+
+    React.useEffect (fun () ->
+        let opts =
+            unbox<GetTokenSilentlyOptions>
+                {| audience = "https://safe-auth0.herokuapp.com/api/"
+                   scope = "read:messages" |}
+        try
+            async {
+                let! accessToken =
+                    ctxAuth0.getAccessTokenSilently.Invoke opts
+                    |> Async.AwaitPromise
+                Browser.WebStorage.localStorage.setItem("token", accessToken)
+            }
+            |> Async.StartImmediate
+
+        with ex ->
+            // @TODO: error handling
+            JS.console.log(ex.Message)
+    , [| ctxAuth0.isAuthenticated :> obj |])
 
     match ctxAuth0.isLoading, ctxAuth0.user with
     | _, None ->
@@ -191,6 +213,9 @@ let navBrand model dispatch =
                 prop.text "Get message"
             ]
         ]
+        Bulma.navbarItem.div [
+            Bulma.text.p model.Message
+        ]
     ]
 
 let containerBox (model: Model) (dispatch: Msg -> unit) =
@@ -248,7 +273,6 @@ let view (model: Model) (dispatch: Msg -> unit) =
                                     text.hasTextCentered
                                     prop.text "safe_auth0"
                                 ]
-                                Bulma.text.p (model.Message |> function "" -> "No message received yet..." | msg -> msg)
                                 containerBox model dispatch
                             ]
                         ]
