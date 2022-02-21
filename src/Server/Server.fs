@@ -110,7 +110,7 @@ let configureApp (app:IApplicationBuilder) =
 
 let configureServices (services : IServiceCollection) =
     let config = services.BuildServiceProvider().GetService<IConfiguration>()
-    let domain = config.["Auth0:Domain"]
+    let domain = sprintf "https://%s/" config.["Auth0:Domain"]
     let audience = config.["Auth0:Audience"]
 
     services
