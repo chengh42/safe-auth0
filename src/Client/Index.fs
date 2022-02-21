@@ -14,17 +14,21 @@ type Msg =
     | GetPrivateMessage
     | GotPrivateMessage of string
 
+type SecuredApi =
+    static member getMessage arg = fun (api: ISecuredApi) -> api.getMessage arg
+
 let todosApi =
     Remoting.createApi ()
     |> Remoting.withRouteBuilder Route.builder
     |> Remoting.buildProxy<ITodosApi>
 
-let securedApi =
+let onSecuredApi (fn: 'a -> ISecuredApi -> Async<'a0>) (arg: 'a) =
     let token = Browser.WebStorage.localStorage.getItem "token"
     Remoting.createApi ()
     |> Remoting.withRouteBuilder Route.builder
     |> Remoting.withAuthorizationHeader (sprintf "Bearer %s" token)
     |> Remoting.buildProxy<ISecuredApi>
+    |> fn arg
 
 let init () : Model * Cmd<Msg> =
     let model = { Todos = []; Input = ""; Message = "" }
@@ -52,7 +56,7 @@ let update (msg: Msg) (model: Model) : Model * Cmd<Msg> =
     | GetPrivateMessage ->
         let cmd =
             Cmd.OfAsync.either
-                securedApi.getMessage
+                (onSecuredApi SecuredApi.getMessage)
                 ()
                 GotPrivateMessage
                 (fun err -> GotPrivateMessage $"Not authenticated: {err.Message}")
