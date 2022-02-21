@@ -78,6 +78,15 @@ let auth0App (children: seq<ReactElement>) =
 
 
 [<ReactComponent>]
+let MessageBox (props: {| Message: string |}) =
+    let ctxAuth0 = useAuth0 ()
+    if ctxAuth0.isLoading
+    then
+        Bulma.field.div [ prop.className "loader is-loading" ]
+    else
+        Bulma.text.p props.Message
+
+[<ReactComponent>]
 let AuthenticationBox () =
     let ctxAuth0 = useAuth0 ()
 
@@ -149,20 +158,15 @@ let AuthenticationBox () =
 
         let userProfile =
             Bulma.level [
-                color.hasBackgroundPrimary
                 prop.style [ style.padding (length.em 0.5) ]
                 prop.children [
                     Bulma.levelItem [
-                        Bulma.image [
-                            Bulma.image.isRounded
-                            ++ Bulma.image.is48x48
-                            prop.children [
-                                Html.img [
-                                    prop.style [ style.maxHeight.unset ]
-                                    prop.alt username
-                                    prop.src picture
-                                ]
-                            ]
+                        Html.img [
+                            prop.style [
+                                style.width (length.auto)
+                                style.borderRadius (length.rem 1) ]
+                            prop.alt username
+                            prop.src picture
                         ]
                     ]
                     Bulma.levelItem [
@@ -204,7 +208,10 @@ let navBrand model dispatch =
             ]
         ]
         Bulma.navbarItem.div [
-            AuthenticationBox ()
+            navbarItem.isActive
+            prop.children [
+                AuthenticationBox ()
+            ]
         ]
         Bulma.navbarItem.div [
             Bulma.button.button [
@@ -214,7 +221,7 @@ let navBrand model dispatch =
             ]
         ]
         Bulma.navbarItem.div [
-            Bulma.text.p model.Message
+            MessageBox {| Message = model.Message |}
         ]
     ]
 
